@@ -275,12 +275,22 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         post("caffeine", content)
     }
 
-    /// Quiet confirmation after the keyboard shortcut logs water.
-    func confirmLogged(ml: Int) {
+    /// Quiet confirmation after the keyboard shortcut or a link logs a drink.
+    func confirmLogged(ml: Int, drink: Drink = .water) {
         let content = UNMutableNotificationContent()
-        content.title = "Logged \(ml) ml 💧"
+        content.title = drink == .water
+            ? "Logged \(ml) ml 💧"
+            : "Logged \(ml) ml of \(drink.name.lowercased()) \(drink.emoji)"
         content.body = "Today: \(Format.liters(WaterStore.shared.todayTotal)) of \(Format.liters(Prefs.dailyGoalML.value))"
         post("logged", content)
+    }
+
+    /// A hourdrop:// link couldn't be logged: say why, so whatever sent it can be fixed.
+    func tellLinkFailed(_ problem: LinkError) {
+        let content = UNMutableNotificationContent()
+        content.title = "Hourdrop link not logged"
+        content.body = problem.message
+        post("not-logged", content)
     }
 
     /// Fires a reminder 3 seconds from now so you can test the buttons.

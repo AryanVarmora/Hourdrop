@@ -13,6 +13,9 @@ enum Drink: String, CaseIterable {
     static let sizesOz: [Double] = [10, 12, 16, 20, 24, 30]
 
     static let mlPerOunce = 29.5735
+
+    /// A sensible single drink, in ml: about 1 oz to 3 L. Typed amounts and links outside it are refused.
+    static let sensibleML: ClosedRange<Double> = 25...3000
     static func ml(oz: Double) -> Int { Int((oz * mlPerOunce).rounded()) }
 
     /// Turns a typed amount into ml: "12", "12 oz", "12.5oz" are ounces, "355 ml" is ml.
@@ -23,7 +26,7 @@ enum Drink: String, CaseIterable {
             return nil
         }
         let ml = lower.contains("ml") ? value : value * mlPerOunce
-        guard (25...3000).contains(ml) else { return nil }
+        guard sensibleML.contains(ml) else { return nil }
         return Int(ml.rounded())
     }
 

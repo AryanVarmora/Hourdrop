@@ -28,5 +28,11 @@ fi
 rm -rf /Applications/Hourdrop.app
 cp -R "$APP" /Applications/Hourdrop.app
 
+# Remove the build copy, so the one in Applications is the only Hourdrop macOS knows
+# to open hourdrop:// links with.
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
+    -u "$APP" 2>/dev/null || true
+rm -rf "$APP"
+
 open /Applications/Hourdrop.app
 echo "Done. Look for the drop in your menu bar."

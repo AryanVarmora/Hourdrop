@@ -22,6 +22,11 @@ ditto -c -k --keepParent build/Hourdrop.app "$ZIP"
 echo
 echo "Chips in the app: $(lipo -archs build/Hourdrop.app/Contents/MacOS/Hourdrop)"
 codesign --verify --strict build/Hourdrop.app && echo "Signature: OK"
+
+# Only the zip is needed. Remove the app copy, so macOS doesn't consider it for hourdrop:// links.
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister \
+    -u build/Hourdrop.app 2>/dev/null || true
+rm -rf build/Hourdrop.app
 echo "Made $ZIP ($(du -h "$ZIP" | cut -f1 | tr -d ' ')), version $VERSION."
 echo
 echo "To publish it (first time only: gh auth login):"

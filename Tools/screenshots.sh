@@ -39,6 +39,7 @@ xcrun swiftc \
 
 cp Info.plist "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier com.aryanvarmora.sip.screenshots" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Delete :CFBundleURLTypes" "$APP/Contents/Info.plist"   # hourdrop:// links stay with the real app
 cp Resources/AppIcon.icns Resources/Assets.car "$APP/Contents/Resources/"
 codesign --force --sign - "$APP"
 

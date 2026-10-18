@@ -22,14 +22,23 @@ struct HourdropApp: App {
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Runs before launch finishes, so a link that started Hourdrop isn't missed.
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        guard !Self.anotherCopyIsRunning else { return }
+        // hourdrop://log?… links from other apps log a drink (see DrinkLink.swift).
+        LinkReceiver.shared.onLink = { url in
+            switch DrinkLink.log(url, into: WaterStore.shared, bottleML: Prefs.bottleSizeML.value) {
+            case .success(let link): NotificationManager.shared.confirmLogged(ml: link.ml, drink: link.drink)
+            case .failure(let problem): NotificationManager.shared.tellLinkFailed(problem)
+            }
+        }
+        LinkReceiver.shared.start()
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Only one Hourdrop at a time: if a copy is already running, this one quits,
         // so you never get two drops in the menu bar or double reminders.
-        let me = NSRunningApplication.current
-        let others = NSRunningApplication
-            .runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
-            .filter { $0 != me && !$0.isTerminated }
-        if !others.isEmpty {
+        if Self.anotherCopyIsRunning {
             NSApp.terminate(nil)
             return
         }
@@ -45,6 +54,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NotificationManager.shared.confirmLogged(ml: ml)
         }
         HotKey.shared.applyPrefs()
+    }
+
+    private static var anotherCopyIsRunning: Bool {
+        let me = NSRunningApplication.current
+        return NSRunningApplication
+            .runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+            .contains { $0 != me && !$0.isTerminated }
     }
 }
 

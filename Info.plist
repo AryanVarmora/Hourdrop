@@ -23,6 +23,18 @@
     <string>AppIcon</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.0</string>
+    <!-- Links like hourdrop://log?ml=250 log a drink (see Sources/DrinkLink.swift) -->
+    <key>CFBundleURLTypes</key>
+    <array>
+        <dict>
+            <key>CFBundleURLName</key>
+            <string>com.aryanvarmora.sip.log</string>
+            <key>CFBundleURLSchemes</key>
+            <array>
+                <string>hourdrop</string>
+            </array>
+        </dict>
+    </array>
     <!-- Menu bar only: no Dock icon, no app switcher entry -->
     <key>LSUIElement</key>
     <true/>
