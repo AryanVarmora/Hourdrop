@@ -34,6 +34,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         NotificationManager.shared.setUp()
+
+        // ⌃⌥W logs water from anywhere (the amount is set in Settings).
+        HotKey.shared.onPress = {
+            let quarters = Prefs.shortcutQuarters.value
+            guard quarters > 0 else { return }
+            let ml = Prefs.bottleSizeML.value * quarters / 4
+            WaterStore.shared.add(ml: ml)
+            NotificationManager.shared.confirmLogged(ml: ml)
+        }
+        HotKey.shared.applyPrefs()
     }
 }
 
@@ -46,16 +56,5 @@ struct MenuBarLabel: View {
             Image(systemName: "drop.fill")
             Text(Format.liters(store.todayTotal))
         }
-    }
-}
-
-enum Format {
-    static func liters(_ ml: Int) -> String {
-        String(format: "%.1f L", Double(ml) / 1000)
-    }
-
-    /// US fluid ounces, e.g. 665 ml -> "22.5 oz".
-    static func ounces(_ ml: Int) -> String {
-        String(format: "%.1f oz", Double(ml) / 29.5735)
     }
 }

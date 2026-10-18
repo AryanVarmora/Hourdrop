@@ -29,6 +29,21 @@ enum Drink: String, CaseIterable {
 
     var name: String { rawValue.capitalized }
 
+    /// "1 coffee", "2 coffees", "3 smoothies"
+    func count(_ n: Int) -> String { "\(n) \(name.lowercased())\(n == 1 ? "" : "s")" }
+
+    /// Rough caffeine per US fl oz: brewed coffee is about 95 mg per 8 oz,
+    /// a chai latte about 50 mg per 8 oz.
+    var caffeinePerOz: Double {
+        switch self {
+        case .coffee: 12
+        case .chai: 6
+        case .water, .smoothie: 0
+        }
+    }
+
+    func caffeineMg(ml: Int) -> Int { Int((Double(ml) / Self.mlPerOunce * caffeinePerOz).rounded()) }
+
     var emoji: String {
         switch self {
         case .water: "💧"
@@ -62,6 +77,30 @@ final class WaterStore: ObservableObject {
     var todayEntries: [WaterEntry] { entries.filter { $0.timestamp >= dayStart } }
     var todayTotal: Int { todayEntries.reduce(0) { $0 + $1.ml } }
 
+    var todayCaffeineMg: Int { caffeineMg(since: dayStart) }
+    var lastDrinkAt: Date? { entries.map(\.timestamp).max() }
+
+    /// Sends each new drink right after it's logged (used for the late-caffeine nudge).
+    let drinkLogged = PassthroughSubject<WaterEntry, Never>()
+
+    /// Total ml since `start`, for one drink or for everything.
+    func total(since start: Date, drink: Drink? = nil) -> Int {
+        entries.filter { $0.timestamp >= start && (drink == nil || $0.kind == drink) }
+            .reduce(0) { $0 + $1.ml }
+    }
+
+    func caffeineMg(since start: Date) -> Int {
+        entries.filter { $0.timestamp >= start }.reduce(0) { $0 + $1.kind.caffeineMg(ml: $1.ml) }
+    }
+
+    /// How many of each drink since `start`, e.g. 2 coffees and 1 smoothie.
+    func counts(since start: Date) -> [(drink: Drink, count: Int)] {
+        Drink.allCases.compactMap { drink in
+            let n = entries.filter { $0.timestamp >= start && $0.kind == drink }.count
+            return n > 0 ? (drink, n) : nil
+        }
+    }
+
     /// Today's total for each drink you've had, e.g. water 1300, coffee 355.
     var todayByDrink: [(drink: Drink, ml: Int)] {
         Drink.allCases.compactMap { drink in
@@ -91,8 +130,10 @@ final class WaterStore: ObservableObject {
     func add(ml: Int, drink: Drink = .water) {
         guard ml > 0 else { return }
         refresh()
-        entries.append(WaterEntry(timestamp: .now, ml: ml, drink: drink.rawValue))
+        let entry = WaterEntry(timestamp: .now, ml: ml, drink: drink.rawValue)
+        entries.append(entry)
         save()
+        drinkLogged.send(entry)
     }
 
     func undoLast() {
