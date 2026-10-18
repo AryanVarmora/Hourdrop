@@ -19,7 +19,20 @@ A Mac menu bar app that reminds you to drink water, and lets you log it straight
   </tr>
 </table>
 
-## Install (about 2 minutes)
+## Download (no Terminal needed)
+1. Download **[Hourdrop.zip](https://github.com/AryanVarmora/Hourdrop/releases/latest/download/Hourdrop.zip)**. It runs on any Mac with macOS 14 Sonoma or later, Apple silicon or Intel. If your browser doesn't unzip it, double-click the zip.
+2. Drag **Hourdrop** into your **Applications** folder. Do this before opening it, so it stays put and can start at login.
+3. Double-click **Hourdrop** in Applications. macOS says **"Hourdrop" Not Opened** (*Apple could not verify "Hourdrop" is free of malware…*). Click **Done**, not Move to Trash.
+4. Open **System Settings → Privacy & Security** and scroll down to **Security**. Next to *"Hourdrop" was blocked to protect your Mac*, click **Open Anyway**. Click **Open Anyway** once more, then enter your Mac password or use Touch ID.
+   - The button only shows for about an hour after step 3. If it's not there, do step 3 again.
+   - On macOS 14 Sonoma there's a shortcut instead: Control-click Hourdrop → **Open** → **Open**.
+5. Hourdrop opens. A drop and `0.0 L` appear in your menu bar. Click **Allow** when macOS asks about notifications.
+
+You only do steps 3 and 4 once.
+
+**Why the warning?** macOS shows it for any app that isn't *notarized* by Apple, which needs a paid Apple Developer account ($99/year). Hourdrop is a free personal project without one. All of its code is in this repo, and the download is built from it by `release.sh`. If you'd rather not click through the warning, build it yourself (below).
+
+## Or build it yourself (about 2 minutes)
 1. Get the code: on GitHub click **Code → Download ZIP** and unzip it, or run `git clone https://github.com/AryanVarmora/Hourdrop.git`.
 2. Open **Terminal**, go into the folder and run the installer:
    ```
@@ -71,7 +84,13 @@ Each one can be turned off in Settings.
 - **Keyboard shortcut** (Settings → General): **⌃⌥W** logs ¼ from any app, or set it to ½ or a full bottle.
 
 ## Updating
-Change any file in `Sources/`, then run `bash install.sh` again. It rebuilds and replaces the installed app.
+- **Downloaded it?** Quit Hourdrop (click the drop → **Quit**), download the new [Hourdrop.zip](https://github.com/AryanVarmora/Hourdrop/releases/latest/download/Hourdrop.zip), drag the new Hourdrop into Applications and choose **Replace**. Your drinks and settings stay. macOS may ask you to do **Open Anyway** again.
+- **Built it yourself?** Get the new code (or change any file in `Sources/`), then run `bash install.sh` again. It rebuilds and replaces the installed app.
+
+## Making a release
+1. In `Info.plist`, raise `CFBundleShortVersionString` (e.g. 1.0 → 1.1) and `CFBundleVersion` (e.g. 1 → 2), then commit.
+2. Run `bash release.sh`. It builds `build/Hourdrop.zip` (one app for Apple silicon and Intel) and shows the two commands to run next: `git push`, then `gh release create …`.
+3. First time only: run `gh auth login` before `gh release create`. Choose **GitHub.com**, **HTTPS**, and **Login with a web browser**.
 
 ## Retaking the screenshots
 After changing how the popover or Settings look, run `bash Tools/screenshots.sh`. It opens a demo copy of Hourdrop with made-up drinks (your own drinks and settings aren't touched), saves each Settings tab to `docs/screenshots/`, then asks you to click the demo drop in the menu bar for the popover.
@@ -98,17 +117,19 @@ Quit Hourdrop from its menu, delete `/Applications/Hourdrop.app`, and optionally
 - **No notifications**: check Focus / Do Not Disturb is off, and System Settings → Notifications → Hourdrop is allowed.
 - **No permission prompt**: remove Hourdrop from System Settings → Notifications, then reopen Hourdrop.
 - **Doesn't start at login after updating from Sip**: in Settings → General, turn **Launch at login** off and on again.
-- **"Apple could not verify Hourdrop…" warning**: `install.sh` already removes the downloaded-file mark that causes it. If it still appears, open System Settings → Privacy & Security, scroll down and click **Open Anyway**. If you send `Hourdrop.app` to someone else, they will see this warning. Only a paid Apple Developer account ($99/year) with notarization removes it on other Macs.
+- **"Apple could not verify Hourdrop…" warning**: if you downloaded the zip, follow steps 3 and 4 under [Download](#download-no-terminal-needed). If you built it with `install.sh`, it already removes the downloaded-file mark that causes the warning; if it still appears, use **Open Anyway** the same way.
 - **Build error**: copy the Terminal output and open an issue.
 
 ## Files
 | File | What it does |
 |---|---|
-| `install.sh` | Builds the app and icon, signs it locally, installs to /Applications, launches it |
+| `install.sh` | Builds the app (with `build.sh`), installs it to /Applications, launches it |
+| `build.sh` | Builds `build/Hourdrop.app`: compiles the code, adds the icon, signs it locally. `--universal` makes one app for Apple silicon and Intel |
+| `release.sh` | Makes `build/Hourdrop.zip` for GitHub Releases and shows the commands to publish it |
 | `Info.plist` | App identity and icon; `LSUIElement` makes it menu bar only (no Dock icon) |
 | `Icon/AppIcon.icon` | The app icon source (open in Icon Composer) |
 | `Icon/Hourdrop-logo.png` | The flat logo artwork |
-| `Resources/` | Built icon files (`AppIcon.icns`, `Assets.car`), made by `install.sh` |
+| `Resources/` | Built icon files (`AppIcon.icns`, `Assets.car`), made by `build.sh` |
 | `docs/screenshots/` | The pictures in this README |
 | `Tools/screenshots.sh` | Retakes the README screenshots with a demo copy and made-up data |
 | `Tools/Screenshots/ScreenshotApp.swift` | The demo copy: fills in demo drinks, opens each Settings tab and saves the pictures |
