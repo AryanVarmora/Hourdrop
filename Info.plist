@@ -5,11 +5,11 @@
     <key>CFBundleIdentifier</key>
     <string>com.aryanvarmora.sip</string>
     <key>CFBundleName</key>
-    <string>Sip</string>
+    <string>Hourdrop</string>
     <key>CFBundleDisplayName</key>
-    <string>Sip</string>
+    <string>Hourdrop</string>
     <key>CFBundleExecutable</key>
-    <string>Sip</string>
+    <string>Hourdrop</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Builds Sip.app from source, installs it to /Applications and launches it.
+# Builds Hourdrop.app from source, installs it to /Applications and launches it.
 # Run once:  bash install.sh   (run again any time you change the code)
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -12,10 +12,11 @@ if ! xcrun --find swiftc >/dev/null 2>&1; then
     exit 1
 fi
 
-APP="build/Sip.app"
+APP="build/Hourdrop.app"
 ARCH="$(uname -m)"   # arm64 on Apple Silicon, x86_64 on Intel
+BUNDLE_ID="com.aryanvarmora.sip"   # kept from when the app was called Sip, so settings carry over
 
-echo "Building Sip..."
+echo "Building Hourdrop..."
 rm -rf build
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
@@ -25,7 +26,7 @@ xcrun swiftc \
     -sdk "$(xcrun --show-sdk-path)" \
     -target "${ARCH}-apple-macos14.0" \
     Sources/*.swift \
-    -o "$APP/Contents/MacOS/Sip"
+    -o "$APP/Contents/MacOS/Hourdrop"
 
 cp Info.plist "$APP/Contents/Info.plist"
 
@@ -57,13 +58,22 @@ codesign --force --sign - "$APP"
 
 # 5. Install to /Applications, replacing any older copy.
 echo "Installing to /Applications..."
-# Only this account's copy: other accounts on this Mac run their own Sip.
+# Only this account's copy: other accounts on this Mac run their own.
 ME="$(id -u)"
-pkill -x -u "$ME" Sip 2>/dev/null || true
+pkill -x -u "$ME" Hourdrop 2>/dev/null || true
+pkill -x -u "$ME" Sip 2>/dev/null || true          # the app's old name
 # Wait (up to 5 s) until the old copy has really quit before starting the new one.
-for _ in $(seq 1 25); do pgrep -x -u "$ME" Sip >/dev/null || break; sleep 0.2; done
-rm -rf /Applications/Sip.app
-cp -R "$APP" /Applications/Sip.app
+for _ in $(seq 1 25); do
+    pgrep -x -u "$ME" Hourdrop >/dev/null || pgrep -x -u "$ME" Sip >/dev/null || break
+    sleep 0.2
+done
+# Remove the old Sip.app, but only if it's this app (another app called Sip exists).
+if [ -d /Applications/Sip.app ] && \
+   [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' /Applications/Sip.app/Contents/Info.plist 2>/dev/null)" = "$BUNDLE_ID" ]; then
+    rm -rf /Applications/Sip.app
+fi
+rm -rf /Applications/Hourdrop.app
+cp -R "$APP" /Applications/Hourdrop.app
 
-open /Applications/Sip.app
+open /Applications/Hourdrop.app
 echo "Done. Look for the drop in your menu bar."

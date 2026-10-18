@@ -1,7 +1,7 @@
 import SwiftUI
 import ServiceManagement
 
-/// Sip's Settings window, in three tabs.
+/// Hourdrop's Settings window, in three tabs.
 struct SettingsView: View {
     var body: some View {
         TabView {
@@ -15,51 +15,91 @@ struct SettingsView: View {
     }
 }
 
-// MARK: - Water: bottle, goal, LARQ filter
+// MARK: - Water: what you drink from, goal, water filter
 
 struct WaterSettings: View {
     @ObservedObject private var store = WaterStore.shared
-    @AppStorage(Prefs.bottleSizeML.key) private var bottleSizeML = Prefs.bottleSizeML.fallback
+    @AppStorage(Prefs.containerName.key) private var container = Prefs.containerName.fallback
+    @AppStorage(Prefs.bottleSizeML.key) private var sizeML = Prefs.bottleSizeML.fallback
     @AppStorage(Prefs.dailyGoalML.key) private var dailyGoalML = Prefs.dailyGoalML.fallback
-    @AppStorage(Prefs.filterCapacityL.key) private var filterCapacityL = Prefs.filterCapacityL.fallback
+    @AppStorage(Prefs.filterKind.key) private var filterKind: FilterKind = .none
+    @AppStorage(Prefs.filterCustomL.key) private var customL = Prefs.filterCustomL.fallback
+    @AppStorage(Prefs.filterCustomMonths.key) private var customMonths = Prefs.filterCustomMonths.fallback
     @AppStorage(Prefs.filterStart.key) private var filterStart = Prefs.filterStart.fallback
+
+    /// Quick picks for the size, by container. Any other size can be typed in.
+    private var commonSizes: [(label: String, ml: Int)] {
+        if container == "glass" {
+            return [8, 10, 12, 16].map { ("\($0) oz glass or cup", Drink.ml(oz: Double($0))) }
+        }
+        return [16, 20, 24, 32, 40].map { ("\($0) oz bottle", Drink.ml(oz: Double($0))) }
+            + [("1 liter bottle", 1000), ("LARQ 25 oz filtered bottle (holds 22.5 oz)", 665)]
+    }
 
     var body: some View {
         Form {
             Section("Water") {
-                SizeRow(label: "Bottle size", value: $bottleSizeML, range: 100...2000, step: 50)
+                Picker("I drink from", selection: $container) {
+                    Text("A bottle").tag("bottle")
+                    Text("A glass or cup").tag("glass")
+                }
+                SizeRow(label: container == "glass" ? "Glass size" : "Bottle size",
+                        value: $sizeML, range: 100...2000, step: 50)
+                LabeledContent("Common sizes") {
+                    Menu("Choose…") {
+                        ForEach(commonSizes, id: \.label) { size in
+                            Button("\(size.label) · \(size.ml) ml") { sizeML = size.ml }
+                        }
+                    }
+                    .fixedSize()
+                }
                 Stepper("Daily goal: \(dailyGoalML) ml (\(Format.ounces(dailyGoalML)))",
                         value: $dailyGoalML, in: 500...6000, step: 250)
             }
 
             Section {
-                Picker("Filter", selection: $filterCapacityL) {
-                    ForEach(FilterLife.capacities, id: \.liters) { Text($0.name).tag($0.liters) }
-                    Text("Don't track").tag(0)
+                Picker("Filter", selection: $filterKind) {
+                    ForEach(FilterKind.allCases) { Text($0.label).tag($0) }
                 }
-                if filterCapacityL > 0 {
+                if filterKind == .custom {
+                    NumberRow(label: "Lasts up to", value: $customL, range: 0...2000, unit: "liters",
+                              note: customL == 0 ? "no liter limit" : nil)
+                    NumberRow(label: "or", value: $customMonths, range: 1...24,
+                              unit: customMonths == 1 ? "month" : "months")
+                }
+                if filterKind != .none {
                     DatePicker("Put in on", selection: filterStartDate, in: ...Date.now,
                                displayedComponents: .date)
                     LabeledContent("Used", value: usageText)
-                    Button("I replaced it today") {
-                        filterStart = Date.now.timeIntervalSince1970
-                    }
+                    Button("I replaced it today") { FilterLife.markReplaced() }
                 }
             } header: {
-                Text("LARQ filter")
+                Text("Water filter")
             } footer: {
-                Text("Counts the water you log, since it all goes through your bottle's filter. A filter lasts its liters or 2 months, whichever comes first. Sip lets you know at 90% and when it's due.")
+                Text(filterKind == .none
+                     ? "If your bottle or pitcher has a filter, pick it here and Hourdrop will remind you when to change it."
+                     : "Hourdrop counts the water you log toward the filter's limit (liters or months, whichever comes first). You get a heads-up at 90%, then a reminder every morning once it's due, until you click Replaced it.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 430)
-        .onChange(of: bottleSizeML) {
-            NotificationManager.shared.registerButtons()   // update the ml on reminder buttons
+        .frame(width: 480, height: filterKind == .custom ? 590 : 510)
+        .onChange(of: sizeML) { NotificationManager.shared.registerButtons() }     // update reminder buttons
+        .onChange(of: container) { NotificationManager.shared.registerButtons() }
+        .onChange(of: filterKind) {
+            if filterKind != .none, filterStart == 0 { filterStart = Date.now.timeIntervalSince1970 }
+            resetFilterAlerts()
         }
-        .onChange(of: filterStart) { Prefs.filterAlertedPercent.set(0) }      // new filter, new alerts
-        .onChange(of: filterCapacityL) { Prefs.filterAlertedPercent.set(0) }
+        // A different filter or date: start its reminders fresh.
+        .onChange(of: filterStart) { resetFilterAlerts() }
+        .onChange(of: customL) { resetFilterAlerts() }
+        .onChange(of: customMonths) { resetFilterAlerts() }
+    }
+
+    private func resetFilterAlerts() {
+        Prefs.filterAlertedPercent.set(0)
+        Prefs.filterRemindedDay.set(0)
     }
 
     private var filterStartDate: Binding<Date> {
@@ -71,12 +111,11 @@ struct WaterSettings: View {
 
     /// e.g. "23% · 21.6 of 94 L · replace by Dec 18"
     private var usageText: String {
-        let start = Date(timeIntervalSince1970: filterStart)
-        let filter = FilterLife(start: start, capacityL: filterCapacityL,
-                                filteredML: store.total(since: start, drink: .water))
+        guard let filter = FilterLife.current() else { return "" }
+        let percent = "\(Int(filter.used(now: .now) * 100))%"
         let liters = String(format: "%.1f", Double(filter.filteredML) / 1000)
-        return "\(Int(filter.used(now: .now) * 100))% · \(liters) of \(filterCapacityL) L · "
-            + "replace by \(filter.replaceBy.formatted(.dateTime.month(.abbreviated).day()))"
+        let volume = filter.capacityL > 0 ? " · \(liters) of \(filter.capacityL) L" : ""
+        return "\(percent)\(volume) · replace by \(filter.replaceBy.formatted(.dateTime.month(.abbreviated).day()))"
     }
 }
 
@@ -130,7 +169,7 @@ struct ReminderSettings: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 520)
+        .frame(width: 480, height: 520)
         .onChange(of: remindersEnabled) { NotificationManager.shared.settingsChanged() }
         .onChange(of: interval) { NotificationManager.shared.settingsChanged() }
         .onChange(of: wakeStartHour) { NotificationManager.shared.settingsChanged() }
@@ -166,6 +205,7 @@ struct ReminderSettings: View {
 // MARK: - General: caffeine, keyboard shortcut, launch at login
 
 struct GeneralSettings: View {
+    @AppStorage(Prefs.containerName.key) private var container = Prefs.containerName.fallback
     @AppStorage(Prefs.caffeineCutoffHour.key) private var caffeineCutoffHour = Prefs.caffeineCutoffHour.fallback
     @AppStorage(Prefs.shortcutQuarters.key) private var shortcutQuarters = Prefs.shortcutQuarters.fallback
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -189,9 +229,9 @@ struct GeneralSettings: View {
             Section {
                 Picker("\(HotKey.label) logs", selection: $shortcutQuarters) {
                     Text("Off").tag(0)
-                    Text("¼ bottle").tag(1)
-                    Text("½ bottle").tag(2)
-                    Text("Full bottle").tag(4)
+                    Text("¼ \(container)").tag(1)
+                    Text("½ \(container)").tag(2)
+                    Text("Full \(container)").tag(4)
                 }
                 if shortcutTaken {
                     Text("Another app already uses \(HotKey.label), so this shortcut can't work right now.")
@@ -211,7 +251,7 @@ struct GeneralSettings: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 350)
+        .frame(width: 480, height: 350)
         .onAppear { updateShortcutTaken() }
         .onChange(of: shortcutQuarters) {
             HotKey.shared.applyPrefs()
@@ -235,6 +275,8 @@ struct GeneralSettings: View {
     }
 }
 
+// MARK: - Rows
+
 /// A size you can type exactly (e.g. 665) or nudge with the arrows, with ounces shown.
 /// Typed values outside `range` are pulled back inside it.
 struct SizeRow: View {
@@ -257,6 +299,34 @@ struct SizeRow: View {
                 Text("ml (\(Format.ounces(value)))")
                     .foregroundStyle(.secondary)
                 Stepper(label, value: clamped, in: range, step: step)
+                    .labelsHidden()
+            }
+        }
+    }
+}
+
+/// A whole number you can type or nudge, with a unit after it, e.g. "150 liters".
+struct NumberRow: View {
+    let label: String
+    @Binding var value: Int
+    let range: ClosedRange<Int>
+    let unit: String
+    var note: String? = nil
+
+    var body: some View {
+        let clamped = Binding(
+            get: { value },
+            set: { value = min(max($0, range.lowerBound), range.upperBound) }
+        )
+        LabeledContent(label) {
+            HStack(spacing: 6) {
+                TextField(label, value: clamped, format: .number)
+                    .labelsHidden()
+                    .multilineTextAlignment(.trailing)
+                    .frame(width: 56)
+                Text(note.map { "\(unit) (\($0))" } ?? unit)
+                    .foregroundStyle(.secondary)
+                Stepper(label, value: clamped, in: range)
                     .labelsHidden()
             }
         }

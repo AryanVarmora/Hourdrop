@@ -66,7 +66,7 @@ struct WaterEntry: Codable, Identifiable {
 }
 
 /// Single source of truth for intake. Saves every drink to
-/// ~/Library/Application Support/Sip/water-log.json (full history, not just today).
+/// ~/Library/Application Support/Hourdrop/water-log.json (full history, not just today).
 @MainActor
 final class WaterStore: ObservableObject {
     static let shared = WaterStore()
@@ -112,10 +112,16 @@ final class WaterStore: ObservableObject {
     private let fileURL: URL
 
     private init() {
-        let dir = FileManager.default
-            .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Sip", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let files = FileManager.default
+        let support = files.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let dir = support.appendingPathComponent("Hourdrop", isDirectory: true)
+        // The app used to be called Sip: move its history over the first time.
+        let oldDir = support.appendingPathComponent("Sip", isDirectory: true)
+        if !files.fileExists(atPath: dir.path),
+           files.fileExists(atPath: oldDir.appendingPathComponent("water-log.json").path) {
+            try? files.moveItem(at: oldDir, to: dir)
+        }
+        try? files.createDirectory(at: dir, withIntermediateDirectories: true)
         fileURL = dir.appendingPathComponent("water-log.json")
         load()
 

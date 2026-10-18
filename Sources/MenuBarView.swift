@@ -8,7 +8,10 @@ struct MenuBarView: View {
     @AppStorage(Prefs.dailyGoalML.key) private var dailyGoalML = Prefs.dailyGoalML.fallback
     @AppStorage(Prefs.wakeStartHour.key) private var wakeStartHour = Prefs.wakeStartHour.fallback
     @AppStorage(Prefs.wakeEndHour.key) private var wakeEndHour = Prefs.wakeEndHour.fallback
-    @AppStorage(Prefs.filterCapacityL.key) private var filterCapacityL = Prefs.filterCapacityL.fallback
+    // Not read directly: these make the popover refresh when filter settings change.
+    @AppStorage(Prefs.filterKind.key) private var filterKind = Prefs.filterKind.fallback
+    @AppStorage(Prefs.filterCustomL.key) private var filterCustomL = Prefs.filterCustomL.fallback
+    @AppStorage(Prefs.filterCustomMonths.key) private var filterCustomMonths = Prefs.filterCustomMonths.fallback
     @AppStorage(Prefs.filterStart.key) private var filterStart = Prefs.filterStart.fallback
 
     /// The drink whose size picker is open (tap Coffee, Chai or Smoothie to open it).
@@ -29,12 +32,7 @@ struct MenuBarView: View {
         return Pace(drankML: store.total(since: window.start), goalML: dailyGoalML, window: window, now: now)
     }
 
-    private var filter: FilterLife? {
-        guard filterCapacityL > 0 else { return nil }
-        let start = Date(timeIntervalSince1970: filterStart)
-        return FilterLife(start: start, capacityL: filterCapacityL,
-                          filteredML: store.total(since: start, drink: .water))
-    }
+    private var filter: FilterLife? { FilterLife.current() }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -153,14 +151,22 @@ struct MenuBarView: View {
     }
 
     /// "LARQ filter: 23% used · replace by Dec 18", orange from 90%, red when due.
+    /// From 90% on, a "Replaced it" button resets it in one click.
     private func filterLine(_ filter: FilterLife) -> some View {
         let used = filter.used(now: .now)
         let text = used >= 1
-            ? "LARQ filter: time to replace it"
-            : "LARQ filter: \(Int(used * 100))% used · replace by \(filter.replaceBy.formatted(.dateTime.month(.abbreviated).day()))"
-        return Text(text)
-            .font(.caption)
-            .foregroundStyle(used >= 1 ? .red : used >= 0.9 ? .orange : .secondary)
+            ? "\(filter.kind.title): time to change it"
+            : "\(filter.kind.title): \(Int(used * 100))% used · replace by \(filter.replaceBy.formatted(.dateTime.month(.abbreviated).day()))"
+        return HStack {
+            Text(text)
+                .foregroundStyle(used >= 1 ? .red : used >= 0.9 ? .orange : .secondary)
+            if used >= 0.9 {
+                Spacer()
+                Button("Replaced it ✓") { FilterLife.markReplaced() }
+                    .buttonStyle(.link)
+            }
+        }
+        .font(.caption)
     }
 
     /// Size choices for one drink: quick sizes in oz, or type any amount.

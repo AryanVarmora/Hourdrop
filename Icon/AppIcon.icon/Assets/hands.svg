@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Clock hands: the "hour" in Hourdrop. Pivot at 512,623. -->
+  <g fill="none" stroke="#0B5AD4" stroke-linecap="round">
+    <line x1="512" y1="483" x2="512" y2="603" stroke-width="36"/>
+    <line x1="527" y1="611" x2="609" y2="551" stroke-width="36"/>
+    <circle cx="512" cy="623" r="22" stroke-width="20"/>
+  </g>
+</svg>

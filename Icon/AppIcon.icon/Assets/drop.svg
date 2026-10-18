@@ -1,4 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- The drop: pointed tip at the top, round bottom (circle centre 512,610, radius 230). -->
-  <path fill="#FFFFFF" d="M512 180 C600 300 742 440 742 610 A230 230 0 0 1 282 610 C282 440 424 300 512 180 Z"/>
+  <!-- The drop: pointed tip at the top, round bottom (circle centre 512,614, radius 262). -->
+  <path fill="#FFFFFF" d="M512 116 C553 193 774 455 774 614 A262 262 0 0 1 250 614 C250 455 471 193 512 116 Z"/>
 </svg>

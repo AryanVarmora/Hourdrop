@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct SipApp: App {
+struct HourdropApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var store = WaterStore.shared
 
@@ -23,7 +23,7 @@ struct SipApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Only one Sip at a time: if a copy is already running, this one quits,
+        // Only one Hourdrop at a time: if a copy is already running, this one quits,
         // so you never get two drops in the menu bar or double reminders.
         let me = NSRunningApplication.current
         let others = NSRunningApplication
@@ -33,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             NSApp.terminate(nil)
             return
         }
+        Prefs.migrate()
         NotificationManager.shared.setUp()
 
         // ⌃⌥W logs water from anywhere (the amount is set in Settings).

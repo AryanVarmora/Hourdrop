@@ -1,12 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
-    <!-- Same drop shape, shrunk around the circle centre so a white rim shows around the water. -->
-    <clipPath id="inside">
-      <path transform="translate(512 610) scale(0.8) translate(-512 -610)"
-            d="M512 180 C600 300 742 440 742 610 A230 230 0 0 1 282 610 C282 440 424 300 512 180 Z"/>
+    <!-- Same shape as drop.svg, so the water stays inside the drop. -->
+    <clipPath id="drop">
+      <path d="M512 116 C553 193 774 455 774 614 A262 262 0 0 1 250 614 C250 455 471 193 512 116 Z"/>
     </clipPath>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9ADBFA"/>
+      <stop offset="1" stop-color="#6FC2F7"/>
+    </linearGradient>
   </defs>
-  <!-- Water filling the lower part of the drop, with a gentle wave on top. -->
-  <path clip-path="url(#inside)" fill="#1E88F0"
-        d="M180 575 C290 525 400 525 512 575 S734 625 844 575 L844 900 L180 900 Z"/>
+  <!-- Water in the bottom of the drop, with a gentle wave on top. -->
+  <path clip-path="url(#drop)" fill="url(#water)"
+        d="M186 698 C348 665 460 690 512 701 S684 758 845 708 L845 1024 L186 1024 Z"/>
 </svg>

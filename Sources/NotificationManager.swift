@@ -2,14 +2,16 @@ import AppKit
 import Combine
 import UserNotifications
 
-/// Decides when to remind you, posts every Sip notification, and turns reminder buttons
-/// into logged drinks. Sip checks once a minute instead of using a fixed schedule, so it can
+/// Decides when to remind you, posts every Hourdrop notification, and turns reminder buttons
+/// into logged drinks. Hourdrop checks once a minute instead of using a fixed schedule, so it can
 /// wait while you're busy, space reminders by your pace, and send an end-of-day recap.
 @MainActor
 final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     static let shared = NotificationManager()
 
     private static let categoryID = "DRINK_REMINDER"
+    private static let filterCategoryID = "FILTER"
+    private static let filterReplacedID = "FILTER_REPLACED"
 
     /// Choices for how often reminders come, in minutes.
     static let intervalChoices = [30, 60, 90, 120]
@@ -17,16 +19,18 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     private let center = UNUserNotificationCenter.current()
     private var timer: Timer?
     private var drinkWatcher: AnyCancellable?
-    /// Keeps macOS from napping Sip in the background, which would delay reminders.
+    /// Keeps macOS from napping Hourdrop in the background, which would delay reminders.
     private var activity: NSObjectProtocol?
 
-    /// Water buttons on every reminder: parts of your bottle. Read fresh so they follow Settings.
+    /// Water buttons on every reminder: parts of your bottle (or glass).
+    /// Read fresh so they follow Settings.
     private static var waterButtons: [(id: String, title: String, ml: Int)] {
-        let bottle = Prefs.bottleSizeML.value
+        let size = Prefs.bottleSizeML.value
+        let container = Prefs.containerName.value
         return [
-            ("LOG_QUARTER", "¼ bottle", bottle / 4),
-            ("LOG_HALF", "½ bottle", bottle / 2),
-            ("LOG_FULL", "Full bottle", bottle),
+            ("LOG_QUARTER", "¼ \(container)", size / 4),
+            ("LOG_HALF", "½ \(container)", size / 2),
+            ("LOG_FULL", "Full \(container)", size),
         ]
     }
 
@@ -42,8 +46,10 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         // Older versions scheduled reminders ahead of time; clear any that are left.
         center.removeAllPendingNotificationRequests()
 
-        // Start counting filter use from today until you set the real date in Settings.
-        if Prefs.filterStart.value == 0 { Prefs.filterStart.set(Date.now.timeIntervalSince1970) }
+        // If you track a filter, count from today until you set the real date in Settings.
+        if Prefs.filterKind.value != FilterKind.none.rawValue, Prefs.filterStart.value == 0 {
+            Prefs.filterStart.set(Date.now.timeIntervalSince1970)
+        }
 
         drinkWatcher = WaterStore.shared.drinkLogged.sink { entry in
             MainActor.assumeIsolated { NotificationManager.shared.checkLateCaffeine(entry) }
@@ -80,7 +86,14 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             intentIdentifiers: [],
             options: []
         )
-        center.setNotificationCategories([category])
+        // Filter notifications get one button: tap it after you've swapped the filter.
+        let filterCategory = UNNotificationCategory(
+            identifier: Self.filterCategoryID,
+            actions: [UNNotificationAction(identifier: Self.filterReplacedID, title: "Replaced it ✓")],
+            intentIdentifiers: [],
+            options: []
+        )
+        center.setNotificationCategories([category, filterCategory])
     }
 
     private func startTimer() {
@@ -122,7 +135,7 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
             lastDrink: WaterStore.shared.lastDrinkAt
         )
         let recapDue = recapIsDue(window: window, now: now)
-        let filterAlert = dueFilterAlert(now: now)
+        let filterAlert = dueFilterAlert(window: window, now: now)
 
         guard reminderDue || recapDue || filterAlert != nil else { return }
         if Prefs.pauseWhenBusy.value, Presence.busyReason() != nil { return }
@@ -137,7 +150,10 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         }
         if let filterAlert {
             post("filter", filterAlert.content)
-            Prefs.filterAlertedPercent.set(filterAlert.percent)
+            switch filterAlert.kind {
+            case .headsUp: Prefs.filterAlertedPercent.set(90)
+            case .due: Prefs.filterRemindedDay.set(Calendar.current.startOfDay(for: now).timeIntervalSince1970)
+            }
         }
     }
 
@@ -202,23 +218,43 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
         return content
     }
 
-    /// A heads-up at 90% and a reminder at 100%, once each per filter.
-    private func dueFilterAlert(now: Date) -> (content: UNMutableNotificationContent, percent: Int)? {
+    /// A heads-up once at 90%, then a reminder every day (in your wake hours) once the
+    /// filter is due, until you tap "Replaced it ✓".
+    private func dueFilterAlert(window: WakeWindow, now: Date)
+        -> (content: UNMutableNotificationContent, kind: FilterLife.Alert)? {
         guard let filter = FilterLife.current() else { return nil }
-        let percent = Int(filter.used(now: now) * 100)
-        let alerted = Prefs.filterAlertedPercent.value
+        let used = filter.used(now: now)
+        guard let kind = FilterLife.alertDue(
+            used: used,
+            inWakeHours: window.contains(now),
+            today: Calendar.current.startOfDay(for: now).timeIntervalSince1970,
+            remindedDay: Prefs.filterRemindedDay.value,
+            alertedPercent: Prefs.filterAlertedPercent.value
+        ) else { return nil }
+
         let content = UNMutableNotificationContent()
-        if percent >= 100, alerted < 100 {
-            content.title = "Time to replace your LARQ filter"
-            content.body = "It's used up (2 months or \(filter.capacityL) L). After swapping it, open Sip Settings → Water → I replaced it."
-            return (content, 100)
+        content.categoryIdentifier = Self.filterCategoryID
+        switch kind {
+        case .due:
+            content.title = "Time to change your \(filter.name) 🔄"
+            content.body = "It's past its \(filter.limits). Swap in a new one, then click Replaced it. "
+                + "Until then, Hourdrop will remind you each morning."
+            content.sound = .default
+        case .headsUp:
+            content.title = "\(filter.kind.title) almost used up"
+            content.body = "It's at \(Int(used * 100))%. Change it by "
+                + "\(filter.replaceBy.formatted(.dateTime.month(.wide).day())). Already did? Click Replaced it."
         }
-        if percent >= 90, alerted < 90 {
-            content.title = "LARQ filter almost used up"
-            content.body = "It's at \(percent)%. Plan to replace it by \(filter.replaceBy.formatted(date: .abbreviated, time: .omitted))."
-            return (content, 90)
-        }
-        return nil
+        return (content, kind)
+    }
+
+    /// Confirms a new filter, with the date the next one is due.
+    private func confirmFilterReplaced() {
+        guard let filter = FilterLife.current() else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "New \(filter.name) ✓"
+        content.body = "Counting from today. Next change by \(filter.replaceBy.formatted(.dateTime.month(.wide).day()))."
+        post("filter", content)
     }
 
     /// After a coffee or chai late in the day, one heads-up per day about sleep.
@@ -280,7 +316,10 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     }
 
     private static func handle(actionID: String, typed: String?) {
-        if let button = waterButtons.first(where: { $0.id == actionID }) {
+        if actionID == filterReplacedID {
+            FilterLife.markReplaced()
+            shared.confirmFilterReplaced()
+        } else if let button = waterButtons.first(where: { $0.id == actionID }) {
             WaterStore.shared.add(ml: button.ml, drink: .water)
         } else if let drink = Drink.others.first(where: { drinkID($0) == actionID }) {
             if let ml = Drink.ml(fromTyped: typed ?? "") {
