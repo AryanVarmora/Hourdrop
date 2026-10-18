@@ -7,10 +7,10 @@ A Mac menu bar app that reminds you to drink water, and lets you log it straight
 *(Hourdrop used to be called Sip. Updating keeps your drinks and settings.)*
 
 ## Install (about 2 minutes)
-1. Get the code: on GitHub click **Code → Download ZIP** and unzip it, or run `git clone https://github.com/AryanVarmora/Sip.git`.
+1. Get the code: on GitHub click **Code → Download ZIP** and unzip it, or run `git clone https://github.com/AryanVarmora/Hourdrop.git`.
 2. Open **Terminal**, go into the folder and run the installer:
    ```
-   cd ~/Downloads/Sip-main      # or wherever the folder is
+   cd ~/Downloads/Hourdrop-main      # or wherever the folder is
    bash install.sh
    ```
 3. First time only: if a popup asks to install **Command Line Tools**, click **Install**, wait for it to finish, then run `bash install.sh` again.
