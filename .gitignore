@@ -1,0 +1,5 @@
+# Made by install.sh on every run
+build/
+
+# macOS Finder files
+.DS_Store

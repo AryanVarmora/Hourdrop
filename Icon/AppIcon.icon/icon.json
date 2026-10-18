@@ -1,0 +1,35 @@
+{
+  "fill" : {
+    "linear-gradient" : [
+      "display-p3:0.36000,0.78000,1.00000,1.00000",
+      "display-p3:0.05000,0.38000,0.88000,1.00000"
+    ],
+    "orientation" : {
+      "start" : { "x" : 0.5, "y" : 0 },
+      "stop" : { "x" : 0.5, "y" : 1 }
+    }
+  },
+  "groups" : [
+    {
+      "name" : "Water",
+      "layers" : [
+        { "name" : "water", "image-name" : "water.svg", "glass" : true }
+      ],
+      "shadow" : { "kind" : "neutral", "opacity" : 0.4 },
+      "translucency" : { "enabled" : false, "value" : 0.5 },
+      "specular" : true
+    },
+    {
+      "name" : "Drop",
+      "layers" : [
+        { "name" : "drop", "image-name" : "drop.svg", "glass" : true }
+      ],
+      "shadow" : { "kind" : "neutral", "opacity" : 0.5 },
+      "translucency" : { "enabled" : true, "value" : 0.3 },
+      "specular" : true
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : [ "macOS" ]
+  }
+}
