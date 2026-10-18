@@ -260,10 +260,10 @@ final class NotificationManager: NSObject, UNUserNotificationCenterDelegate {
     /// After a coffee or chai late in the day, one heads-up per day about sleep.
     private func checkLateCaffeine(_ entry: WaterEntry) {
         let cutoff = Prefs.caffeineCutoffHour.value
-        guard cutoff >= 0, entry.kind.caffeinePerOz > 0 else { return }
         let calendar = Calendar.current
-        let hour = calendar.component(.hour, from: entry.timestamp)
-        guard hour >= cutoff || hour < 5 else { return }
+        guard entry.kind.caffeinePerOz > 0,
+              Drink.isLateForCaffeine(hour: calendar.component(.hour, from: entry.timestamp), cutoff: cutoff)
+        else { return }
         let day = calendar.startOfDay(for: entry.timestamp).timeIntervalSince1970
         guard Prefs.caffeineWarnedDay.value != day else { return }
         Prefs.caffeineWarnedDay.set(day)

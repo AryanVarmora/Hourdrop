@@ -1,0 +1,26 @@
+# Runs on GitHub's Macs every time code is pushed (and for pull requests):
+# the tests, then a full build of the app for Apple silicon and Intel.
+# The result shows as the "build" badge at the top of the README.
+name: build
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test-and-build:
+    runs-on: macos-latest
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v5
+
+      - name: Show the Xcode and Swift versions
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Run the tests
+        run: bash test.sh
+
+      - name: Build the app (Apple silicon and Intel)
+        run: bash build.sh --universal

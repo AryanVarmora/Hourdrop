@@ -2,6 +2,8 @@
 
 # Hourdrop
 
+[![build](https://github.com/AryanVarmora/Hourdrop/actions/workflows/build.yml/badge.svg)](https://github.com/AryanVarmora/Hourdrop/actions/workflows/build.yml)
+
 A Mac menu bar app that reminds you to drink water, and lets you log it straight from the reminder. It works with any bottle, glass or cup, and also tracks coffee, chai and smoothies. Its reminders are smart: they follow your pace, wait while you're on a call or away, and finish with an end-of-day recap. No Xcode needed.
 
 *(Hourdrop used to be called Sip. Updating keeps your drinks and settings.)*
@@ -66,7 +68,7 @@ You only do steps 3 and 4 once.
 - Every drink counts toward your daily goal. Under the total you'll see the split, e.g. 💧 1.3 L ☕️ 0.4 L.
 - Tapped the wrong one? **Undo last** removes it.
 - The menu bar always shows today's total. It resets at midnight.
-- Your full history is saved in `~/Library/Application Support/Hourdrop/water-log.json`.
+- Your full history is saved in `~/Library/Application Support/Hourdrop/water-log.json`. Once a day Hourdrop also saves a copy in the `Backups` folder next to it and keeps the last 14 days (see Troubleshooting to restore one).
 
 ## Smart features
 Each one can be turned off in Settings.
@@ -91,6 +93,11 @@ Each one can be turned off in Settings.
 1. In `Info.plist`, raise `CFBundleShortVersionString` (e.g. 1.0 → 1.1) and `CFBundleVersion` (e.g. 1 → 2), then commit.
 2. Run `bash release.sh`. It builds `build/Hourdrop.zip` (one app for Apple silicon and Intel) and shows the two commands to run next: `git push`, then `gh release create …`.
 3. First time only: run `gh auth login` before `gh release create`. Choose **GitHub.com**, **HTTPS**, and **Login with a web browser**.
+
+## Running the tests
+Run `bash test.sh`. It checks the logic behind pace, reminder timing, filter life, typed drink amounts, caffeine, saving and Undo, and the daily backups.
+- The tests never use your real drink log: each one saves to its own temporary file. As a second safety net, `test.sh` points the tests' home folder at a temporary folder, and one test fails if you run them any other way (for example with plain `swift test`).
+- GitHub runs the same tests, plus a full build, every time code is pushed. The **build** badge at the top shows the latest result: green means passing. Click it to see the details.
 
 ## Retaking the screenshots
 After changing how the popover or Settings look, run `bash Tools/screenshots.sh`. It opens a demo copy of Hourdrop with made-up drinks (your own drinks and settings aren't touched), saves each Settings tab to `docs/screenshots/`, then asks you to click the demo drop in the menu bar for the popover.
@@ -118,6 +125,11 @@ Quit Hourdrop from its menu, delete `/Applications/Hourdrop.app`, and optionally
 - **No permission prompt**: remove Hourdrop from System Settings → Notifications, then reopen Hourdrop.
 - **Doesn't start at login after updating from Sip**: in Settings → General, turn **Launch at login** off and on again.
 - **"Apple could not verify Hourdrop…" warning**: if you downloaded the zip, follow steps 3 and 4 under [Download](#download-no-terminal-needed). If you built it with `install.sh`, it already removes the downloaded-file mark that causes the warning; if it still appears, use **Open Anyway** the same way.
+- **Drinks missing, or the log is damaged**: restore a daily backup.
+  1. Quit Hourdrop (click the drop → **Quit**).
+  2. In Finder, press **⌘⇧G** and go to `~/Library/Application Support/Hourdrop/Backups`. Each file is named by its date, e.g. `water-log-2026-10-18.json`, and holds your log as it was at the start of that day.
+  3. Copy the one you want into the `Hourdrop` folder above it, and rename it to `water-log.json`, replacing the old file.
+  4. Open Hourdrop again.
 - **Build error**: copy the Terminal output and open an issue.
 
 ## Files
@@ -130,11 +142,16 @@ Quit Hourdrop from its menu, delete `/Applications/Hourdrop.app`, and optionally
 | `Icon/AppIcon.icon` | The app icon source (open in Icon Composer) |
 | `Icon/Hourdrop-logo.png` | The flat logo artwork |
 | `Resources/` | Built icon files (`AppIcon.icns`, `Assets.car`), made by `build.sh` |
+| `test.sh` | Runs the tests, with a temporary home folder |
+| `Package.swift` | Lets `swift test` find the code and the tests (the app itself is built by `build.sh`) |
+| `Tests/HourdropTests/` | The tests |
+| `.github/workflows/build.yml` | Runs the tests and a build on GitHub after every push |
 | `docs/screenshots/` | The pictures in this README |
 | `Tools/screenshots.sh` | Retakes the README screenshots with a demo copy and made-up data |
 | `Tools/Screenshots/ScreenshotApp.swift` | The demo copy: fills in demo drinks, opens each Settings tab and saves the pictures |
 | `Sources/HourdropApp.swift` | App entry, menu bar icon + live total, keyboard shortcut action |
 | `Sources/WaterStore.swift` | Drink types, sizes and caffeine; saves drinks, totals, undo, midnight reset |
+| `Sources/LogBackup.swift` | The daily backup of your drink log (last 14 days) |
 | `Sources/NotificationManager.swift` | Once-a-minute check that sends reminders, the recap, filter and caffeine alerts; reminder buttons that log drinks |
 | `Sources/Pace.swift` | Wake hours, pace (ahead / on track / behind) and when the next reminder is due |
 | `Sources/Presence.swift` | "Busy?" check: screen locked, away from the Mac, or a mic in use |

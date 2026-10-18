@@ -1,5 +1,9 @@
-# Made by install.sh on every run
+# Made by build.sh on every run
 build/
+
+# Made by swift test (test.sh)
+.build/
+.swiftpm/
 
 # macOS Finder files
 .DS_Store

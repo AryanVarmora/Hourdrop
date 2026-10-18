@@ -44,6 +44,12 @@ enum Drink: String, CaseIterable {
 
     func caffeineMg(ml: Int) -> Int { Int((Double(ml) / Self.mlPerOunce * caffeinePerOz).rounded()) }
 
+    /// Whether a drink at `hour` (0 to 23) is late enough for the caffeine heads-up: from the
+    /// cutoff hour on, and the small hours before 5 AM count as late too. A cutoff of -1 means never.
+    static func isLateForCaffeine(hour: Int, cutoff: Int) -> Bool {
+        cutoff >= 0 && (hour >= cutoff || hour < 5)
+    }
+
     var emoji: String {
         switch self {
         case .water: "💧"
@@ -66,10 +72,12 @@ struct WaterEntry: Codable, Identifiable {
 }
 
 /// Single source of truth for intake. Saves every drink to
-/// ~/Library/Application Support/Hourdrop/water-log.json (full history, not just today).
+/// ~/Library/Application Support/Hourdrop/water-log.json (full history, not just today),
+/// with a daily backup in the Backups folder next to it (see LogBackup).
 @MainActor
 final class WaterStore: ObservableObject {
-    static let shared = WaterStore()
+    /// The app's store, saving to your real log.
+    static let shared = WaterStore(fileURL: realLogURL())
 
     @Published private(set) var entries: [WaterEntry] = []
     @Published private(set) var dayStart = Calendar.current.startOfDay(for: .now)
@@ -110,26 +118,36 @@ final class WaterStore: ObservableObject {
     }
 
     private let fileURL: URL
+    private let backupFolder: URL
 
-    private init() {
+    /// Where your drinks are saved: ~/Library/Application Support/Hourdrop/water-log.json.
+    /// The app used to be called Sip: the first time, this moves its history over.
+    private static func realLogURL() -> URL {
         let files = FileManager.default
         let support = files.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let dir = support.appendingPathComponent("Hourdrop", isDirectory: true)
-        // The app used to be called Sip: move its history over the first time.
         let oldDir = support.appendingPathComponent("Sip", isDirectory: true)
         if !files.fileExists(atPath: dir.path),
            files.fileExists(atPath: oldDir.appendingPathComponent("water-log.json").path) {
             try? files.moveItem(at: oldDir, to: dir)
         }
         try? files.createDirectory(at: dir, withIntermediateDirectories: true)
-        fileURL = dir.appendingPathComponent("water-log.json")
+        return dir.appendingPathComponent("water-log.json")
+    }
+
+    /// The app uses `shared`. Tests make their own store with a file in a temporary
+    /// folder, so they can never touch your real log.
+    init(fileURL: URL) {
+        self.fileURL = fileURL
+        backupFolder = fileURL.deletingLastPathComponent().appendingPathComponent("Backups", isDirectory: true)
         load()
+        LogBackup.makeIfNeeded(of: fileURL, in: backupFolder)
 
         // Midnight reset: when the day changes, "today" moves forward and the total starts at 0.
         NotificationCenter.default.addObserver(
             forName: .NSCalendarDayChanged, object: nil, queue: .main
-        ) { _ in
-            MainActor.assumeIsolated { WaterStore.shared.refresh() }
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refresh() }
         }
     }
 
@@ -161,6 +179,8 @@ final class WaterStore: ObservableObject {
     }
 
     private func save() {
+        // Before the day's first change, keep a copy of the log as it was.
+        LogBackup.makeIfNeeded(of: fileURL, in: backupFolder)
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = .prettyPrinted
