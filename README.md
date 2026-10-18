@@ -6,6 +6,19 @@ A Mac menu bar app that reminds you to drink water, and lets you log it straight
 
 *(Hourdrop used to be called Sip. Updating keeps your drinks and settings.)*
 
+<table>
+  <tr>
+    <th>Settings: Water</th>
+    <th>Reminders</th>
+    <th>General</th>
+  </tr>
+  <tr>
+    <td valign="top"><img src="docs/screenshots/settings-water.png" width="260" alt="Settings, Water tab: what you drink from, bottle size, daily goal, and water filter"></td>
+    <td valign="top"><img src="docs/screenshots/settings-reminders.png" width="260" alt="Settings, Reminders tab: how often, wake hours, and smart reminders"></td>
+    <td valign="top"><img src="docs/screenshots/settings-general.png" width="260" alt="Settings, General tab: caffeine warning, keyboard shortcut, and launch at login"></td>
+  </tr>
+</table>
+
 ## Install (about 2 minutes)
 1. Get the code: on GitHub click **Code → Download ZIP** and unzip it, or run `git clone https://github.com/AryanVarmora/Hourdrop.git`.
 2. Open **Terminal**, go into the folder and run the installer:
@@ -60,6 +73,16 @@ Each one can be turned off in Settings.
 ## Updating
 Change any file in `Sources/`, then run `bash install.sh` again. It rebuilds and replaces the installed app.
 
+## Retaking the screenshots
+After changing how the popover or Settings look, run `bash Tools/screenshots.sh`. It opens a demo copy of Hourdrop with made-up drinks (your own drinks and settings aren't touched), saves each Settings tab to `docs/screenshots/`, then asks you to click the demo drop in the menu bar for the popover.
+
+The reminder is taken by hand, because macOS draws notifications itself:
+1. Click the drop → **Settings…** → **Reminders** → **Send a test reminder**.
+2. When it appears, hover over it and click **Options** so the buttons show.
+3. Press **⌘⇧4** and drag a box around the reminder and its menu. The picture lands on your Desktop.
+   If the menu closes when you press the keys, press **⌘⇧5** instead, set **Options → Timer** to 5 seconds, click **Capture**, and open the menu while it counts down.
+4. Rename the picture to `reminder.png` and move it into `docs/screenshots/`.
+
 ## Changing the icon
 The icon is `Icon/AppIcon.icon`: the Hourdrop drop with clock hands, using macOS's glass style. `Icon/Hourdrop-logo.png` is the flat original artwork.
 1. Double-click `Icon/AppIcon.icon` to open it in **Icon Composer** (comes with Xcode).
@@ -86,6 +109,9 @@ Quit Hourdrop from its menu, delete `/Applications/Hourdrop.app`, and optionally
 | `Icon/AppIcon.icon` | The app icon source (open in Icon Composer) |
 | `Icon/Hourdrop-logo.png` | The flat logo artwork |
 | `Resources/` | Built icon files (`AppIcon.icns`, `Assets.car`), made by `install.sh` |
+| `docs/screenshots/` | The pictures in this README |
+| `Tools/screenshots.sh` | Retakes the README screenshots with a demo copy and made-up data |
+| `Tools/Screenshots/ScreenshotApp.swift` | The demo copy: fills in demo drinks, opens each Settings tab and saves the pictures |
 | `Sources/HourdropApp.swift` | App entry, menu bar icon + live total, keyboard shortcut action |
 | `Sources/WaterStore.swift` | Drink types, sizes and caffeine; saves drinks, totals, undo, midnight reset |
 | `Sources/NotificationManager.swift` | Once-a-minute check that sends reminders, the recap, filter and caffeine alerts; reminder buttons that log drinks |
